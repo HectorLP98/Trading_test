@@ -139,14 +139,41 @@ def put_EMA(df1,col_use,periodos=[8,13,55,144]):
     return df
     
 def num_fib(k):
+    '''
+    (Function)
+        This function return the k-esimo number of fibonacci
+    (Parameters)
+        - k [int >0] define the index number to return
+    '''
     if k<=2 and k>0: return 1
     else: return num_fib(k-1)+num_fib(k-2)
     
 def sucesion_fib(n):
+    '''
+    (Function)
+        This function return all numbers of fibonacci less equal than n
+    (Parameters)
+        - n: [int] Indica la lista de numeros a desplegar
+    (Example)
+        > sucesion_fib(3)
+        1, 1, 2
+    '''
     for i in range(1,n+1):
         print(num_fib(i))
 
-def put_BandasBollinguer(df1,col_use,ventana, desviacion=2, put_indicator=True):
+def put_BandasBollinguer(df1,col_use="Close",ventana=20, desviacion=2, put_indicator=True):
+    '''
+    (Function)
+        This function append 3 columns to DataFrame, this columns are the values of Bandas Bollinguer (higher,
+        lower, signal), also append optional 2 columns indicator to higher It returns 1, if col_use is higher than bollinger_hband. Else, it returns 0.
+    (Parameters)
+        - df1: [DataFrame] Con el historico
+        - col_use: [str] Indica la columna a usar para el calculo de las bandas, default Close
+        - ventana: [int] Indica la cantidad de periodos a tomar para el calculo, defalult 20
+        - desviacion: [float] default 2
+        - put_indicator: [bool] Indica si pone las 2 columnas indicadoras, default True
+        
+    '''
     df = df1.copy()
     if put_indicator:
         # Indicador bb: It returns 1, if col_use is higher than bollinger_hband. Else, it returns 0.
@@ -174,6 +201,26 @@ def put_BandasBollinguer(df1,col_use,ventana, desviacion=2, put_indicator=True):
                                                     window = ventana,
                                                     window_dev = desviacion,
                                                     fillna = False).bollinger_mavg()
+    return df
+
+def put_MACD(df1,col_use, window_slow, window_fast, window_sign):
+    '''
+    (Function)
+        This function append 3 columns (MACD_Line, MACD_signal, MACD_diff) for visualization the indicator
+    (Parameters)
+        - window_fast(int): n period short-term.
+        - window_slow(int): n period long-term.
+        - window_sign(int): n period to signal.
+    '''
+    df = df1.copy()
+    
+    df['MACD_line'] =ta.trend.MACD(close=   df[col_use], window_slow= window_slow, window_fast= window_fast
+    , window_sign = window_sign, fillna = False).macd()
+    df['MACD_signal'] =ta.trend.MACD(close= df[col_use], window_slow= window_slow, window_fast= window_fast
+    , window_sign = window_sign, fillna = False).macd_signal()
+    df['MACD_diff'] =ta.trend.MACD(close=   df[col_use], window_slow= window_slow, window_fast= window_fast
+    , window_sign = window_sign, fillna = False).macd_diff()
+    
     return df
 
 
@@ -255,6 +302,15 @@ def prueba_hipotesis(df,col_use, alpha, dist='norm', get_data=False):
         return datos
 
 def get_cols_pc_and_dir(n_period,col_use,separeted=True):
+    '''
+    (Function)
+        This function return a list within the names for the columns "_pc_" and "_dir_"
+    (Parameters)
+        - n_period: [int] indica la cantidad de periodos que se calcularon
+        - col_use: [str] Nombre de la columna que se tomo para el calculo del cambio percentual (pc)
+        - separeted: [bool] Si true regresa 2 listas separando pc and dir, pero si es false, retorna una 
+                    sola lista.
+    '''
     cols_pc = []
     cols_dir = []
     for i in range(1,n_period+1):
@@ -264,3 +320,21 @@ def get_cols_pc_and_dir(n_period,col_use,separeted=True):
         return cols_dir, cols_pc
     else:
         return cols_dir + cols_pc
+    
+def put_outliers(df1,col_use, std_tolerancia=2):
+    '''
+    (Function)
+        Esta funcion agrega la columna "Outliyers_STD" que contiene 1 si el registro es outliyer, de lo 
+        contrario es 0. Lo hace usando el metodo de la desviacion mu [+-] std_tolerancia*std
+    (Parameters)
+        - df1: [DataFrame] contiene el historico 
+        - col_use: [str] indica el nombre de la columna sobre la cual se calcula los outliyers
+        - std_tolerancia: [float]  indica la cantidad de desviacion estandar que tomaremos como validos, default 2
+    '''
+    df = df1.copy()
+    mean = df[col_use].mean()
+    std = df[col_use].std()
+    ind_out = df[(df[col_use]>(mean+std_tolerancia*std)) | (df[col_use]<(mean-std_tolerancia*std))].index 
+    df.loc[ind_out,"Outliyers_STD"] = 1
+    df.loc[df["Outliyers_STD"]!=1, "Outliyers_STD"] = 0
+    return df

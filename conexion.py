@@ -114,3 +114,18 @@ def escribir_desencriptado(archivo_entrada, archivo_salida, clave):
     with open(archivo_salida, 'w') as file:
         for key, value in contraseñas.items():
             file.write(f"{key} = {value}\n")
+            
+            
+            
+import requests
+
+def obtener_ip_publica():
+    try:
+        response = requests.get('https://ipinfo.io')
+        data = response.json()
+        ip = data['ip']
+        print(f'Mi dirección IP pública es: {ip}')
+    except requests.RequestException:
+        print('No se pudo obtener la dirección IP pública')
+
+
