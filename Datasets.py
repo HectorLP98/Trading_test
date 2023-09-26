@@ -117,7 +117,10 @@ def generate_dataset(cliente, symbol, interval,
                     FROM {table_name}
                     LIMIT 1
                     ''', con)
-        last_date = last_df.Close_Time.dt.strftime(fecha_format).values[0]
+        date_str = last_df.Close_Time.values[0]
+        date_str = date_str.split(".")[0]
+        last_date = datetime.strptime(date_str, fecha_format)
+        #last_date = last_df.Close_Time.dt.strftime(fecha_format).values[0]
         
         
         
