@@ -6,6 +6,7 @@ Created on Thu Jul 28 09:29:13 2022
 """
 
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 import time
 from fechas import fecha_a_milisegundos, interval_to_milliseconds
@@ -14,7 +15,8 @@ import tqdm
 
 
 def get_historical_from(cliente, symbol:str, interval:str, 
-                        date_start:str,fecha_format: str = '%Y-%m-%d %H:%M:%S'):
+                        date_start:str,fecha_format: str = '%Y-%m-%d %H:%M:%S',
+                        is_yf=False):
     '''
     (Function)
     Esta funcion integra la recursividad para extraer el historico de un symbolo 
@@ -41,8 +43,11 @@ def get_historical_from(cliente, symbol:str, interval:str,
     start_ts = fecha_a_milisegundos(date_start,fecha_format) #datetime.strptime(date_start, format_date_start)
     while True:
         # fetch the klines from start_ts up to max 500 entries or the end_ts if set
-        temp_data = cliente.klines(symbol=symbol, interval=interval, # Aternativa get_klines
+        if not is_yf:
+            temp_data = cliente.klines(symbol=symbol, interval=interval, # Aternativa get_klines
                                 limit=limite, startTime=start_ts ) 
+        else:
+            temp_data = cliente.history(interval=interval, start=date_start)
         # handle the case where our start date is before the symbol pair listed on Binance
         if not symbol_existed and len(temp_data):
             symbol_existed = True
@@ -74,7 +79,7 @@ def get_historical_from(cliente, symbol:str, interval:str,
 def generate_dataset(cliente, symbol, interval,
                      date_start,fecha_format='%Y-%m-%d %H:%M:%S',
                     type_upload='manual',
-                    hrs_diff=6,con=None,table_name=None):
+                    hrs_diff=6,con=None,table_name=None, version_ldate="local"):
     '''
     (Function)
         Esta funcion genera un DataFrame con los datos historico de un simbolo que 
@@ -95,6 +100,8 @@ def generate_dataset(cliente, symbol, interval,
                 segun el pais, puede hacer pruebas para ajustar a su pais, default 6
         - con: Conector con la base de datos que contiene sus historicos, solo si type_upload="auto" 
         - table_name: [str] NOmbre de la tabla del historico a analisar, solo si type_upload="auto" 
+        - version_ldate: Establecela como "local" en caso de usar visual_studio, si no jala por fecha
+          usar foreign.
     (Return)
         pd.DataFrame
     '''
@@ -115,13 +122,15 @@ def generate_dataset(cliente, symbol, interval,
         last_df = pd.read_sql_query(f'''
                     SELECT Close_Time
                     FROM {table_name}
+                    order by Close_Time desc
                     LIMIT 1
                     ''', con)
-        date_str = last_df.Close_Time.values[0]
-        date_str = date_str.split(".")[0]
-        last_date = datetime.strptime(date_str, fecha_format)
-        #last_date = last_df.Close_Time.dt.strftime(fecha_format).values[0]
-        
+        if version_ldate.lower() == "local":
+            last_date = last_df.Close_Time.dt.strftime(fecha_format).values[0]
+        else:
+            date_str = last_df.Close_Time.values[0]
+            date_str = date_str.split(".")[0]
+            last_date = datetime.strptime(date_str, fecha_format)
         
         
     else:
@@ -129,7 +138,6 @@ def generate_dataset(cliente, symbol, interval,
     
     # Hacemos el request a la api de binance
     output_data = get_historical_from(cliente,symbol,interval,last_date,fecha_format)
-    
     #Damos formato DataFrame
     doc_columns = ['Open_Time','Open','High','Low','Close','Volumne',
                 'Close_Time','Quote_asset_vol','Number_trades','Taker_buy_base',
@@ -152,7 +160,7 @@ def generate_dataset(cliente, symbol, interval,
 def up_to_db(cliente, simbolos:list, intervalos:list, 
              date_start:str,fecha_format:str='%Y-%m-%d %H:%M:%S',
              type_upload='manual',
-             hrs_diff=6,con_get=None,con_set=None,if_exist='replace'):
+             hrs_diff=6,con_get=None,con_set=None,if_exist='replace',version_ldate='local'):
     '''
     (Function)
         Esta funcion genera un DataFrame con los datos historico de un simbolo que 
@@ -173,9 +181,16 @@ def up_to_db(cliente, simbolos:list, intervalos:list,
         - con: Conector con la base de datos que contiene sus historicos, solo si type_upload="auto" 
         - if_exist: [str] por default "replace" puede ser ['fail', 'replace', 'append'], indica 
                     que hacer en caso de que la tabla que intenta cargar exista.
+        - version_ldate: Establecela como "local" en caso de usar visual_studio, si no jala por fecha
+          usar foreign.
     (Return)
         pd.DataFrame
     '''
+    if isinstance(simbolos,str): 
+        simbolos = [simbolos]
+    if isinstance(intervalos,str):
+        intervalos = [intervalos]
+        
     for symbol in tqdm.tqdm(simbolos):
         for interval in intervalos:
             
@@ -185,14 +200,18 @@ def up_to_db(cliente, simbolos:list, intervalos:list,
             df = generate_dataset(cliente, symbol, interval,
                         date_start,fecha_format=fecha_format,
                         type_upload=type_upload,
-                        hrs_diff=hrs_diff,con=con_get,table_name=table_name)
+                        hrs_diff=hrs_diff,con=con_get,table_name=table_name,
+                        version_ldate=version_ldate)
                 
 
             df = df[['Open_Time', 'Open', 'High', 'Low', 'Close', 'Volumne', 'Close_Time',
                 'Quote_asset_vol', 'Number_trades', 'Taker_buy_base', 'Taker_buy_quote']]
 
             
-            
+            revisar = df.iloc[-1].values
+            cumplen = np.where(revisar==0)
+            if len(cumplen[0])>1:
+                df = df.iloc[:-1]
             cargados = df.to_sql(table_name,con_set,if_exists=if_exist,index=False)
 
             print(f"Se cargo la tabla: {table_name}")

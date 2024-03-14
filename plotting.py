@@ -3,7 +3,9 @@ import seaborn as sns
 import numpy as np
 
 def plot_line(df_plot,columns,
-              figsize=(15, 8),title="Grafica", make_hist_MACD=None,alpha=0.9,color='b'):
+              figsize=(15, 8),title="Grafica",
+              make_hist_MACD=None, rsi=None,
+              alpha=0.9,color='b'):
     #sns.set_style("darkgrid")
     sns.set_style(rc = {'axes.facecolor': 'lightsteelblue'})
     plt.figure(figsize=figsize)
@@ -14,6 +16,16 @@ def plot_line(df_plot,columns,
     elif isinstance(columns,(list,tuple)):
         for col in columns:
             plt.plot(df_plot.index, df_plot[col], label=col)
+    
+    if isinstance(rsi,(tuple,list)):
+        if len(rsi)==2:
+            # Hacer minimo y maximo
+            min = np.ones(len(df_plot))*rsi[0]
+            max = np.ones(len(df_plot))*rsi[1]
+            plt.plot(df_plot.index, min, linestyle='--',color='m')
+            plt.plot(df_plot.index, max, linestyle='--',color='m')
+        else:
+            raise ValueError("rsi ser una lista de largo 2, (min, max)")
     
     if isinstance(make_hist_MACD,str):
         #plt.hist(df_plot[make_hist],label=make_hist)
