@@ -30,7 +30,7 @@ def graficar_velas(data):
                 close=data['Close'],name="Velas")])
     # Agregar la EMA a la figura
     fig.add_trace(go.Scatter(x=df.index, y=df["EMA7"], mode='lines', name='EMA7',fillcolor="orange"))
-    fig.add_trace(go.Scatter(x=df.index, y=df["EMA28"], mode='lines', name='EMA28',fillcolor="blue"))
+    fig.add_trace(go.Scatter(x=df.index, y=df["EMA29"], mode='lines', name='EMA28',fillcolor="blue"))
     
     fig.update_layout(title='Gráfico de Velas', xaxis_title='Fecha', yaxis_title='Precio')
     tab1.plotly_chart(fig)
@@ -133,12 +133,12 @@ except:
 df = ticker.history(period=period, interval=interval)
 
 # Asignamos EMA
-periodos_ema = [7,28]
+periodos_ema = [7,29]
 for nn in periodos_ema:
     df[f"EMA{nn}"] = calcular_EMA(df=df,col_use="Close",n=nn)
 # Calculamos la distancia entre EMAs
 # calculamos la distancia entre la ema7 y la ema 28
-df["distancia_EMA"] = df["EMA7"] - df["EMA28"]
+df["distancia_EMA"] = df["EMA7"] - df["EMA29"]
 # Generamos el cambio porcentual.
 df = get_change_percent(df,"distancia_EMA",n_periods=1,all_periods=True, reverse=False)
 # Desfasamos un lugar 
